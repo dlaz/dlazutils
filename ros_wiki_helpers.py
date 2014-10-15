@@ -197,9 +197,10 @@ class CWikiVisitor(object):
         Extraction('params', re.compile(r"param\((?P<name>.+),\s*.+,\s*(?P<default>.+)\)")),
         Extraction('params', re.compile(r"getParam\((?P<name>.+),\s*.+\)")),
         Extraction('pubs',   re.compile(r"advertise<(?P<type>.+)>\((?P<name>.+),\s*.+\)")),
-        Extraction('subs',   re.compile(r"subscribe<(?P<type>.+)>\((?P<name>.+),\s*.+,\s*.+\)")),
+        Extraction('subs',   re.compile(r"Subscriber.*<(?P<type>.+)> ?(?P<var_name>[a-zA-Z0-9_]+)?(\((?P<name>.+),\s*.+,\s*.+\))?")),
     ]
     init_expr = re.compile(r"init\(.+,\s*.+,\s*(.+)\)")
+    sub_details_expr = r'%s\(.+,\s*"(?P<name>[a-zA-Z0-9_]+)"\s*,\s*.+\)'
 
     def __init__(self, filename):
         self.info = NodeInfo()
@@ -227,6 +228,9 @@ class CWikiVisitor(object):
                 for match in patt.finditer(self.src):
                     gd = match.groupdict()
                     gd['desc'] = 'No description provided'
+                    if gd.get('var_name', None) and not gd['name']:
+                        gd['name'] = self.find_subscriber_details(gd['var_name'])
+                    if not gd['name']: gd['name'] = ''
                     for k,v in gd.iteritems():
                         gd[k] = v.strip('"\'')
                     if 'type' in gd:
@@ -253,6 +257,12 @@ class CWikiVisitor(object):
                             gd['type'],
                             gd['desc']
                         )
+    def find_subscriber_details(self, var_name):
+        expr = re.compile(self.sub_details_expr % var_name)
+        matches = expr.findall(self.src)
+        if matches:
+            return matches[0]
+        return ''
 
 if __name__ == '__main__':
     filename = os.path.expanduser(sys.argv[1])
